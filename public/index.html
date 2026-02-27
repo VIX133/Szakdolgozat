@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Stego Titkosító (Web)</title>
+    <style>
+        html, body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow-x: hidden; background-color: #1e1e2e; color: #cdd6f4; }
+        section { position: relative; width: 100%; min-height: 100vh; padding-bottom: 50px; }
+        
+        .ui-container {
+            position: relative; margin: 50px auto; width: 80%; max-width: 700px;
+            text-align: center; z-index: 100;
+        }
+
+        h1 { color: #89b4fa; text-shadow: 0 0 10px rgba(137, 180, 250, 0.5); font-family: 'Dosis', sans-serif; font-size: 250%; margin-bottom: 5px; }
+
+        .input-group {
+            background-color: rgba(24, 24, 37, 0.85); backdrop-filter: blur(5px);
+            padding: 30px; border-radius: 12px; border: 1px solid rgba(137, 180, 250, 0.2);
+            margin-top: 20px; display: flex; flex-direction: column; gap: 15px; text-align: left;
+        }
+
+        /* --- SABLON KÉPEK DIZÁJNJA --- */
+        .template-header { font-weight: bold; margin-bottom: -5px; color: #b4befe; }
+        .template-grid { display: flex; gap: 15px; justify-content: space-between; }
+        
+        .template-card {
+            background-color: #313244; padding: 10px; border-radius: 8px; cursor: pointer;
+            border: 2px solid transparent; transition: 0.3s; flex: 1; text-align: center;
+        }
+        .template-card:hover { transform: translateY(-5px); }
+        .template-card.selected { border-color: #a6e3a1; background-color: #45475a; box-shadow: 0 0 15px rgba(166, 227, 161, 0.3); }
+        .template-card img { width: 100%; height: 80px; object-fit: cover; border-radius: 4px; }
+        .template-card .info { font-size: 12px; margin-top: 5px; color: #a6adc8; }
+        .template-card .capacity { font-weight: bold; color: #a6e3a1; font-size: 14px; }
+
+        .divider { text-align: center; font-weight: bold; color: #6c7086; margin: 10px 0; }
+
+        input[type="file"], textarea {
+            background-color: #313244; color: #cdd6f4; padding: 10px; border-radius: 6px;
+            border: 1px solid #45475a; width: 100%; box-sizing: border-box;
+        }
+        
+        textarea { height: 100px; font-family: 'Consolas', monospace; resize: vertical; }
+
+        /* ÉLŐ SZÁMLÁLÓ */
+        .counter { text-align: right; font-size: 12px; color: #a6adc8; margin-top: -10px; font-weight: bold; }
+        .counter span { color: #89b4fa; }
+
+        .btn {
+            background-color: #89b4fa; color: #11111b; border: none; padding: 15px; width: 100%;
+            font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.3s;
+        }
+        .btn:hover { background-color: #b4befe; }
+        #status { margin-top: 15px; font-weight: bold; text-align: center; }
+
+        /* Hullámok */
+        .wave { position: fixed; bottom: 0; left: 0; width: 100%; height: 20vh; background: url(https://i.imgur.com/DLD3N2t.png); background-size: 100vw 20vh; pointer-events: none; }
+        .wave1 { animation: animate 20s linear infinite; z-index: -1; opacity: 0.9; }
+        .wave2 { animation: animate2 15s linear infinite; z-index: -2; opacity: 0.7; bottom: 10px; }
+        @keyframes animate { 0% { background-position-x: 0; } 100% { background-position-x: 100vw; } }
+        @keyframes animate2 { 0% { background-position-x: 0; } 100% { background-position-x: -100vw; } }
+    </style>
+</head>
+<body>
+
+    <section>
+        <div class="ui-container">
+            <h1>PNG ENCODER</h1>
+            
+            <div class="input-group">
+                
+                <div class="template-header">1. Lépés: Válassz egy képet a rejtéshez</div>
+                <div class="template-grid">
+                    <div class="template-card" data-url="https://picsum.photos/400/300?random=1">
+                        <img src="https://picsum.photos/400/300?random=1" crossorigin="anonymous">
+                        <div class="info">Kicsi (400x300)</div>
+                        <div class="capacity">~45 KB hely</div>
+                    </div>
+                    <div class="template-card" data-url="https://picsum.photos/800/600?random=2">
+                        <img src="https://picsum.photos/800/600?random=2" crossorigin="anonymous">
+                        <div class="info">Közepes (800x600)</div>
+                        <div class="capacity">~180 KB hely</div>
+                    </div>
+                    <div class="template-card" data-url="https://picsum.photos/1920/1080?random=3">
+                        <img src="https://picsum.photos/1920/1080?random=3" crossorigin="anonymous">
+                        <div class="info">Nagy (1920x1080)</div>
+                        <div class="capacity">~770 KB hely</div>
+                    </div>
+                    <div class="template-card" data-url="https://picsum.photos/2560/1440?random=3">
+                        <img src="https://picsum.photos/2560/1440?random=3" crossorigin="anonymous">
+                        <div class="info">Nagyon nagy (2560x1440)</div>
+                        <div class="capacity">~1,3 MB hely</div>
+                    </div>
+                </div>
+
+                <div class="divider">--- VAGY TÖLTS FEL SAJÁTOT ---</div>
+                <input type="file" id="fileInput" accept="image/*">
+
+                <div class="template-header" style="margin-top: 10px;">2. Lépés: Írd be a titkos üzenetet</div>
+                <textarea id="messageInput" placeholder="Ide jöhet a titkos szöveg..."></textarea>
+                <div class="counter">Beírt szöveg mérete: <span id="byteCounter">0 KB</span></div>
+
+                <button class="btn" id="encodeBtn">Szöveg képbe rejtése és letöltése</button>
+                <div id="status"></div>
+            </div>
+        </div>
+
+        <div class="wave wave1"></div>
+        <div class="wave wave2"></div>
+    </section>
+
+    <script>
+        const encodeBtn = document.getElementById('encodeBtn');
+        const fileInput = document.getElementById('fileInput');
+        const messageInput = document.getElementById('messageInput');
+        const statusDiv = document.getElementById('status');
+        const byteCounter = document.getElementById('byteCounter');
+        const templateCards = document.querySelectorAll('.template-card');
+
+        let selectedTemplateUrl = null;
+
+        // --- ÉLŐ MÉRETSZÁMLÁLÓ ---
+        messageInput.addEventListener('input', () => {
+            const headerSize = 8;
+            const textBytes = new Blob([messageInput.value]).size; 
+            const totalBytes = headerSize + textBytes;
+            
+            const kbSize = (totalBytes / 1024).toFixed(2);
+            byteCounter.innerText = totalBytes < 1024 ? `${totalBytes} Bájt` : `${kbSize} KB`;
+            
+            if (totalBytes > 770000) { byteCounter.style.color = "#f38ba8"; } 
+            else { byteCounter.style.color = "#89b4fa"; }
+        });
+
+        // --- SABLON KIVÁLASZTÁSA ---
+        templateCards.forEach(card => {
+            card.addEventListener('click', () => {
+                templateCards.forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+                selectedTemplateUrl = card.getAttribute('data-url');
+                fileInput.value = ''; 
+            });
+        });
+
+        fileInput.addEventListener('change', () => {
+            templateCards.forEach(c => c.classList.remove('selected'));
+            selectedTemplateUrl = null;
+        });
+
+        // --- A KÉPKONVERTÁLÓ FÜGGVÉNY ---
+        function convertToPNG(file) {
+            return new Promise((resolve) => {
+                if (file.type === 'image/png') return resolve(file);
+
+                statusDiv.style.color = "#89b4fa";
+                statusDiv.innerText = "Kép optimalizálása (JPG -> PNG)...";
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        canvas.toBlob((blob) => {
+                            resolve(new File([blob], "converted.png", { type: "image/png" }));
+                        }, 'image/png');
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // --- A GOMB MEGNYOMÁSA ---
+        encodeBtn.addEventListener('click', async () => {
+            const message = messageInput.value;
+            let finalImageFile = null;
+            let downloadFileName = "titkos_kep.png"; // Alapértelmezett név, ha valami elcsúszna
+
+            if (!message) {
+                statusDiv.style.color = "#f38ba8";
+                statusDiv.innerText = "Kérlek írj be egy üzenetet!";
+                return;
+            }
+
+            if (selectedTemplateUrl) {
+                statusDiv.style.color = "#89b4fa";
+                statusDiv.innerText = "Sablon kép letöltése...";
+                try {
+                    const res = await fetch(selectedTemplateUrl);
+                    const blob = await res.blob();
+                    finalImageFile = new File([blob], "template.jpg", { type: blob.type });
+                    downloadFileName = "titkos_sablon.png"; // Ha sablont választott, ez lesz a név
+                } catch (e) {
+                    statusDiv.style.color = "#f38ba8";
+                    statusDiv.innerText = "Hiba a sablon betöltésekor.";
+                    return;
+                }
+            } else if (fileInput.files[0]) {
+                finalImageFile = fileInput.files[0];
+                
+                // AZ ÚJ NÉV-GENERÁLÓ LOGIKA:
+                // Kinyerjük az eredeti nevet (pl. "nyaralas_2024.jpg")
+                const originalName = finalImageFile.name; 
+                // Levágjuk az utolsó pont utáni részt (a kiterjesztést)
+                const nameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.')) || originalName;
+                // Rátesszük a .png kiterjesztést (pl. "nyaralas_2024.png")
+                downloadFileName = nameWithoutExt + ".png";
+            } else {
+                statusDiv.style.color = "#f38ba8";
+                statusDiv.innerText = "Kérlek válassz egy sablont vagy tölts fel egy képet!";
+                return;
+            }
+
+            finalImageFile = await convertToPNG(finalImageFile);
+
+            const formData = new FormData();
+            formData.append('image', finalImageFile);
+            formData.append('message', message);
+
+            statusDiv.style.color = "#89b4fa";
+            statusDiv.innerText = "Feltöltés és titkosítás a szerveren...";
+
+            try {
+                const response = await fetch('/encode', { method: 'POST', body: formData });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    
+                    // Itt használjuk fel a korábban kiszámolt nevet!
+                    a.download = downloadFileName; 
+                    
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    
+                    statusDiv.style.color = "#a6e3a1";
+                    statusDiv.innerText = "Siker! A titkosított kép letöltése megkezdődött.";
+                } else {
+                    const errorText = await response.text();
+                    statusDiv.style.color = "#f38ba8";
+                    statusDiv.innerText = "Hiba a szerveren: " + errorText;
+                }
+            } catch (error) {
+                statusDiv.style.color = "#f38ba8";
+                statusDiv.innerText = "Hálózati hiba: " + error.message;
+            }
+        });
+    </script>
+</body>
+</html>

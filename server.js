@@ -37,7 +37,7 @@ app.post('/encode', upload.single('image'), (req, res) => {
     const isWindows = process.platform === 'win32';
     
     // Ha Windows, kell a .exe. Ha Linux, akkor csak simán a fájl neve!
-    const exeName = isWindows ? 'png_encoder.exe' : 'png_encoder';
+    const exeName = isWindows ? 'png_readerFINAL.exe' : 'png_readerFINAL';
     const exePath = path.join(__dirname, exeName);
 
     console.log(`Titkosítás indítása (${exeName})... Kép: ${inputPath}`);

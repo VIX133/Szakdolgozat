@@ -9,7 +9,6 @@ const app = express();
 // Ha az nincs, akkor marad a jó öreg 3000-es port a saját gépeden.
 const port = process.env.PORT || 3000; 
 
-// --- 1. BIZTONSÁGI INTÉZKEDÉS: Mappa létrehozása ---
 // Mivel a felhőbe csak a kódot töltjük fel, az 'uploads' mappa nem fog létezni. Létrehozzuk!
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -32,11 +31,8 @@ app.post('/encode', upload.single('image'), (req, res) => {
     
     fs.writeFileSync(textPath, secretMessage, 'utf8');
 
-    // --- 2. AZ OKOS RENDSZER-FELISMERŐ LOGIKA ---
-    // process.platform megmondja, hol vagyunk: 'win32' = Windows, 'linux' = Linux szerver
     const isWindows = process.platform === 'win32';
     
-    // Ha Windows, kell a .exe. Ha Linux, akkor csak simán a fájl neve!
     const exeName = isWindows ? 'png_readerFINAL.exe' : 'png_readerFINAL';
     const exePath = path.join(__dirname, exeName);
 

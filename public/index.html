@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Stego Titkosító (Web)</title>
     <style>
-        html, body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow-x: hidden; background-color: #1e1e2e; color: #cdd6f4; }
+        html, body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow-x: hidden; background-color: #333374; color: #cdd6f4; }
         section { position: relative; width: 100%; min-height: 100vh; padding-bottom: 50px; }
         
         .ui-container {
@@ -20,7 +20,7 @@
             margin-top: 20px; display: flex; flex-direction: column; gap: 15px; text-align: left;
         }
 
-        /* --- SABLON KÉPEK DIZÁJNJA --- */
+        /* SABLON KÉPEK DIZÁJNJA */
         .template-header { font-weight: bold; margin-bottom: -5px; color: #b4befe; }
         .template-grid { display: flex; gap: 15px; justify-content: space-between; }
         
@@ -56,8 +56,10 @@
 
         /* Hullámok */
         .wave { position: fixed; bottom: 0; left: 0; width: 100%; height: 20vh; background: url(https://i.imgur.com/DLD3N2t.png); background-size: 100vw 20vh; pointer-events: none; }
-        .wave1 { animation: animate 20s linear infinite; z-index: -1; opacity: 0.9; }
-        .wave2 { animation: animate2 15s linear infinite; z-index: -2; opacity: 0.7; bottom: 10px; }
+        .wave1 { animation: animate 20s linear infinite; z-index: 15; opacity: 0.9; bottom: 0; }
+        .wave2 { animation: animate2 15s linear infinite; z-index: 10; opacity: 0.7; animation-delay: -5s; bottom: 10px; }
+        .wave3 { animation: animate 10s linear infinite; z-index: 5; opacity: 0.4; animation-delay: -2s; bottom: 15px; }
+        .wave4 { animation: animate2 5s linear infinite; z-index: 1; opacity: 0.5; animation-delay: -5s; bottom: 20px; }
         @keyframes animate { 0% { background-position-x: 0; } 100% { background-position-x: 100vw; } }
         @keyframes animate2 { 0% { background-position-x: 0; } 100% { background-position-x: -100vw; } }
     </style>
@@ -108,6 +110,9 @@
 
         <div class="wave wave1"></div>
         <div class="wave wave2"></div>
+        <div class="wave wave3"></div>
+        <div class="wave wave4"></div>
+
     </section>
 
     <script>
@@ -179,7 +184,7 @@
         encodeBtn.addEventListener('click', async () => {
             const message = messageInput.value;
             let finalImageFile = null;
-            let downloadFileName = "titkos_kep.png"; // Alapértelmezett név, ha valami elcsúszna
+            let downloadFileName = "titkos_kep.png"; 
 
             if (!message) {
                 statusDiv.style.color = "#f38ba8";
@@ -194,7 +199,7 @@
                     const res = await fetch(selectedTemplateUrl);
                     const blob = await res.blob();
                     finalImageFile = new File([blob], "template.jpg", { type: blob.type });
-                    downloadFileName = "titkos_sablon.png"; // Ha sablont választott, ez lesz a név
+                    downloadFileName = "titkos_sablon.png"; 
                 } catch (e) {
                     statusDiv.style.color = "#f38ba8";
                     statusDiv.innerText = "Hiba a sablon betöltésekor.";
@@ -202,8 +207,6 @@
                 }
             } else if (fileInput.files[0]) {
                 finalImageFile = fileInput.files[0];
-                
-                // AZ ÚJ NÉV-GENERÁLÓ LOGIKA:
                 // Kinyerjük az eredeti nevet (pl. "nyaralas_2024.jpg")
                 const originalName = finalImageFile.name; 
                 // Levágjuk az utolsó pont utáni részt (a kiterjesztést)
@@ -234,7 +237,6 @@
                     const a = document.createElement('a');
                     a.href = url;
                     
-                    // Itt használjuk fel a korábban kiszámolt nevet!
                     a.download = downloadFileName; 
                     
                     document.body.appendChild(a);

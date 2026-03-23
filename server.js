@@ -33,6 +33,7 @@ app.post('/encode', upload.fields([
     // Kinyerjük az útvonalakat az 'uploads' mappából
     const inputPath = req.files['image'][0].path;
     const secretFilePath = req.files['secretFile'][0].path; 
+    const originalFileName = req.files['secretFile'][0].originalname;
     
     // Ide fogja generálni a C program a kész képet
     const outputPath = path.join(__dirname, 'uploads', `secret_${Date.now()}.png`); 
@@ -47,7 +48,7 @@ app.post('/encode', upload.fields([
 
     // --- C MOTOR MEGHÍVÁSA ---
     // Sorrend: 1. Bemeneti kép, 2. Kimeneti kép, 3. Rejtendő fájl
-    execFile(exePath, [inputPath, outputPath, secretFilePath], (error, stdout, stderr) => {
+    execFile(exePath, [inputPath, outputPath, secretFilePath,originalFileName], (error, stdout, stderr) => {
         if (error) {
             console.error("\n[Rendszerhiba]:", error.message);
             console.error("[C kimenet]:\n", stdout);

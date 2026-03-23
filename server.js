@@ -15,42 +15,59 @@ if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir);
 }
 
+// Multer beállítása a fájlok mentési helyéhez
 const upload = multer({ dest: 'uploads/' });
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.post('/encode', upload.single('image'), (req, res) => {
-    if (!req.file || !req.body.message) {
-        return res.status(400).send('Hiányzó fájl vagy üzenet!');
+// --- ITT A VÁLTOZÁS: Két külön fájlt várunk (image és secretFile) ---
+app.post('/encode', upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'secretFile', maxCount: 1 }
+]), (req, res) => {
+    
+    // Ellenőrizzük, hogy mindkét fájl sikeresen megérkezett-e a böngészőtől
+    if (!req.files || !req.files['image'] || !req.files['secretFile']) {
+        return res.status(400).send('Hiányzik a kép vagy a rejtendő fájl!');
     }
 
-    const inputPath = req.file.path;
-    const secretMessage = req.body.message;
+    // Kinyerjük az útvonalakat az 'uploads' mappából
+    const inputPath = req.files['image'][0].path;
+    const secretFilePath = req.files['secretFile'][0].path; 
     
+    // Ide fogja generálni a C program a kész képet
     const outputPath = path.join(__dirname, 'uploads', `secret_${Date.now()}.png`); 
-    const textPath = path.join(__dirname, 'uploads', `msg_${Date.now()}.txt`); 
-    
-    fs.writeFileSync(textPath, secretMessage, 'utf8');
 
     const isWindows = process.platform === 'win32';
     
+    // A C programod neve (hagytam az eredetit)
     const exeName = isWindows ? 'png_readerFINAL.exe' : 'png_readerFINAL';
     const exePath = path.join(__dirname, exeName);
 
-    console.log(`Titkosítás indítása (${exeName})... Kép: ${inputPath}`);
+    console.log(`Titkosítás indítása (${exeName})... Kép: ${inputPath}, Fájl: ${secretFilePath}`);
 
-    execFile(exePath, [inputPath, outputPath, textPath], (error, stdout, stderr) => {
+    // --- C MOTOR MEGHÍVÁSA ---
+    // Sorrend: 1. Bemeneti kép, 2. Kimeneti kép, 3. Rejtendő fájl
+    execFile(exePath, [inputPath, outputPath, secretFilePath], (error, stdout, stderr) => {
         if (error) {
             console.error("\n[Rendszerhiba]:", error.message);
             console.error("[C kimenet]:\n", stdout);
-            return res.status(500).send('Hiba történt a titkosítás során.');
+            
+            // Hiba esetén is letöröljük a feltöltött fájlokat!
+            fs.unlink(inputPath, () => {});
+            fs.unlink(secretFilePath, () => {});
+            return res.status(500).send('Hiba történt a titkosítás során a C motorban.');
         }
 
         console.log("Titkosítás sikeres! Fájl küldése a böngészőnek...");
 
+        // Ha minden jó, visszaküldjük a módosított PNG-t a felhasználónak letöltésre
         res.download(outputPath, 'titkos_kep.png', (err) => {
+            if (err) console.error("Hiba a letöltésnél:", err);
+            
+            // --- TAKARÍTÁS: Törlünk mindent a lemezről ---
             fs.unlink(inputPath, () => {});
             fs.unlink(outputPath, () => {});
-            fs.unlink(textPath, () => {});
+            fs.unlink(secretFilePath, () => {}); // A feltöltött titkos fájlt is!
         });
     });
 });

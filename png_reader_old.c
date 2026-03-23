@@ -4,56 +4,47 @@
 #include <stdlib.h>
 #include <zlib.h>
 
-// ÚJ FEJLÉC: Fájlnév tárolása a 4 karakteres kiterjesztés helyett
 struct Header {
-    uint32_t size;       // rejtett fájl hossza
-    char filename[60];   // pl. "titkos_szerzodes.pdf"
+    uint32_t size;   // rejtett adat hossza
+    char ext[4];     // pl. "txt"
 };
 
-// ÚJ 2-BITES BEÁGYAZÓ FÜGGVÉNY
-void hide_twobits_in_byte(uint8_t *byte, uint8_t bits) {
-    // 0xFC (252) maszk kinullázza az utolsó 2 bitet, utána rátesszük a mi 2 bitünket
-    *byte = (*byte & 0xFC) | (bits & 0x03);
+void hide_bit_in_byte(uint8_t *byte, uint8_t bit) {
+    *byte = (*byte & 0xFE) | (bit & 1);
 }
 
-// ÚJ LSB-2 MOTOR: Alpha csatorna kihagyásával
-void hide_data_in_image(uint8_t *decompressed, uint32_t width, uint32_t height, uint32_t bpp, const void *data, size_t len_bytes, size_t *current_channel_idx) {
-    uint32_t row_size = width * bpp + 1; // 1 bájt filter + pixelek
+void hide_data_in_image(uint8_t *decompressed, uint32_t width, uint32_t height, const void *data, size_t len_bytes, size_t *current_bit_pos) {
+    uint32_t bpp = 4;
+    uint32_t row_size = width * bpp + 1;
+
     const uint8_t *bytes = (const uint8_t*)data;
-    size_t idx = *current_channel_idx;
+
+    size_t global_bit_pos = *current_bit_pos;
 
     for (size_t i = 0; i < len_bytes; i++) {
-        // Egy 8 bites bájt elrejtéséhez 4-szer fut le (2 bitenként)
-        for (int shift = 6; shift >= 0; shift -= 2) {
-            
-            uint32_t x_in_row = idx % (width * bpp);
+        // minden bájthoz 8 csatorna kell
+        for (int j = 7; j >= 0; --j) {
+            uint8_t bit = (bytes[i] >> j) & 1;
 
-            // ALPHA UGRÁS: Ha RGBA kép (bpp == 4) és ez az Alpha csatorna
-            if (bpp == 4 && (x_in_row % 4) == 3) {
-                idx++; // Átugorjuk az Alpha bájtot!
-                x_in_row = idx % (width * bpp); // Újraszámoljuk a sorbeli pozíciót
-            }
-
-            uint32_t y = idx / (width * bpp);
+            // bit_pos → (y,x,csatorna) kiszámítása
+            uint32_t channel_index = (uint32_t)global_bit_pos;
+            uint32_t y = channel_index / (width * bpp);
+            uint32_t x_in_row = channel_index % (width * bpp);
 
             if (y >= height) {
-                return; // Nincs több hely a képben
+                // nincs több hely
+                return;
             }
 
-            // Megkeressük a pontos memóriacímet a sorban (filter bájt átugrásával)
             uint8_t *scanline = decompressed + y * row_size;
-            uint8_t *line = scanline + 1; 
+            uint8_t *line = scanline + 1; // filter kihagyása
 
-            // 2 bit kivágása a rejtendő fájl bájtjából
-            uint8_t two_bits = (bytes[i] >> shift) & 0x03;
+            hide_bit_in_byte(&line[x_in_row], bit);
 
-            // Beágyazás
-            hide_twobits_in_byte(&line[x_in_row], two_bits);
-
-            idx++; // Lépünk a következő színcsatornára
+            global_bit_pos++;
         }
     }
-    *current_channel_idx = idx; // Elmentjük, hol hagytuk abba
+    *current_bit_pos = global_bit_pos;
 }
 
 
@@ -181,6 +172,7 @@ int main(int argc, char *argv[])
     // Lefoglaljuk neki a memóriát, és beolvassuk
     char *secret_message = malloc(msg_size + 1);
     fread(secret_message, 1, msg_size, msg_file);
+    secret_message[msg_size] = '\0'; // Sztring lezárása
     fclose(msg_file);
 
     // File beolvasas
@@ -328,48 +320,31 @@ int main(int argc, char *argv[])
     }
     printf("Defiltering kesz!\n");
 
-    printf("Defiltering kesz!\n");
+    struct Header header;
 
-    // --- ÚJ FEJLÉC ÖSSZEÁLLÍTÁSA ---
-    struct Header header = {0}; // Feltöltjük nullákkal
-    header.size = msg_size;     // A beolvasott fájl (pl. PDF) tényleges mérete
+    header.size = (uint32_t)strlen(secret_message);
+    strncpy(header.ext, "txt", 4);
 
-    // Fájlnév kinyerése az útvonalból (hogy a fejlécbe bekerüljön)
-    const char *filename_only = text_filename;
-    const char *slash = strrchr(filename_only, '/');
-    if (slash) filename_only = slash + 1;
-    const char *backslash = strrchr(filename_only, '\\');
-    if (backslash) filename_only = backslash + 1;
-    
-    strncpy(header.filename, filename_only, 59);
-
-    // --- ÚJ LSB-2 KAPACITÁS ELLENŐRZÉS ---
-    // 1 rejtett bájt -> 4 csatornát foglal el (mert 2 bit megy egy csatornába)
-    size_t total_bytes_to_hide = sizeof(struct Header) + header.size;
-    size_t channels_needed = total_bytes_to_hide * 4; 
-    
-    // Rendelkezésre álló csatornák (Az Alpha bájtokat nem számoljuk bele!)
-    // RGB és RGBA esetén is pixelenként csak 3 csatornát (R,G,B) használunk.
-    size_t available_channels = width * height * 3; 
-
-    if (channels_needed > available_channels) {
-        printf("Nem fer bele a fajl a kepbe! (Tul nagy)\n");
+    // 2. Kapacitás ellenőrzés (Header + Üzenet együtt)
+    size_t total_bits_needed = (sizeof(struct Header) + header.size) * 8;
+    if (total_bits_needed > width * height * bpp * 8) {
+        printf("Nem fer bele!\n");
         return 1;
     }
 
-    // --- BEÁGYAZÁS (bpp paramétert is átadjuk) ---
     size_t current_pos = 0;
-    
-    // 1. Először elrejtem a 64 bájtos headert
-    hide_data_in_image(decompressed, width, height, bpp, &header, sizeof(struct Header), &current_pos);
-    
-    // 2. Utána elrejtem magát a fájlt (secret_message)
-    hide_data_in_image(decompressed, width, height, bpp, secret_message, header.size, &current_pos);
+    //Eloszor elrejtem a headert
+    hide_data_in_image(decompressed, width, height, &header, sizeof(struct Header), &current_pos);
+    //Utanna az uzenetet
+    hide_data_in_image(decompressed, width, height, secret_message, header.size, &current_pos);
 
-    printf("Minden adat elrejtve! Elhasznalt csatornak: %zu\n", current_pos);
+    printf("Minden adat elrejtve! Utolso bit pozicioja: %zu\n", current_pos);
+
+    // --- 4. LÉPÉS: VISSZATÖMÖRÍTÉS ÉS MENTÉS ---
 
     printf("Adatok visszatomoritese...\n");
 
+    // Kiszámoljuk, mekkora puffer kell a tömörítéshez (biztonsági ráhagyással)
     uLongf new_compressed_size = compressBound(decompressed_size);
     uint8_t *new_compressed = malloc(new_compressed_size);
 
@@ -379,6 +354,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // Tényleges tömörítés (decompressed -> new_compressed)
     if (compress(new_compressed, &new_compressed_size, decompressed, decompressed_size) != Z_OK)
     {
         printf("Hiba a compress hivasnal!\n");

@@ -169,6 +169,7 @@ int main(int argc, char *argv[])
     const char *input_filename  = argv[1];
     const char *output_filename = argv[2];
     const char *text_filename   = argv[3];
+    const char *original_name = (argc >= 5) ? argv[4] : text_filename;
 
     // --- SZÖVEG / BINÁRIS FÁJL BEOLVASÁSA ---
     FILE *msg_file = fopen(text_filename, "rb");
@@ -360,15 +361,15 @@ int main(int argc, char *argv[])
     struct Header header = {0};
     header.size = (uint32_t)msg_size; // A beolvasott fájl (pl. PDF) tényleges mérete
 
-    // Fájlnév kinyerése az útvonalból (hogy a fejlécbe bekerüljön)
-    const char *filename_only = text_filename;
+    // Fájlnév kinyerése AZ EREDETI NÉVBŐL (4. paraméter / GUI név)
+    const char *filename_only = original_name;
     const char *slash = strrchr(filename_only, '/');
     if (slash) filename_only = slash + 1;
     const char *backslash = strrchr(filename_only, '\\');
     if (backslash) filename_only = backslash + 1;
 
-    strncpy(header.filename, filename_only, 59);
-    header.filename[59] = '\0'; // biztos null-terminálás
+strncpy(header.filename, filename_only, 59);
+header.filename[59] = '\0';
 
     // --- ÚJ LSB-2 KAPACITÁS ELLENŐRZÉS ---
     size_t total_bytes_to_hide = sizeof(struct Header) + header.size;

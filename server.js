@@ -58,15 +58,27 @@ app.post('/encode', upload.fields([
     execFile(exePath, [inputPath, outputPath, secretFilePath, originalFileName], (error, stdout, stderr) => {
         if (error) {
             console.error("\n[Rendszerhiba]:", error.message);
+            
+            // Fájlok takarítása hiba esetén
             fs.unlink(inputPath, () => {});
             fs.unlink(secretFilePath, () => {});
-            return res.status(500).send('Hiba történt a titkosítás során.');
+            
+            // --- ÚJ RÉSZ: Megnézzük, MIT is mondott a C program! ---
+            if (stdout && stdout.includes("Nem fer bele")) {
+                // Ha a C program szerint túl nagy az adat, ezt üzenjük vissza! (400-as kód)
+                return res.status(400).send("❌ A rejtendő adat túl nagy, nem fér bele a választott képbe! Válassz nagyobb sablont, vagy kisebb fájlt.");
+            } else if (stdout && stdout.includes("Csak RGB vagy RGBA")) {
+                return res.status(400).send("❌ Ez a képformátum nem támogatott (csak RGB/RGBA PNG jó).");
+            } else {
+                // Minden egyéb, váratlan rendszerhiba
+                return res.status(500).send('❌ Ismeretlen hiba történt a titkosítás során a motorban.');
+            }
         }
 
         res.download(outputPath, 'titkos_kep.png', (err) => {
             fs.unlink(inputPath, () => {});
             fs.unlink(outputPath, () => {});
-            fs.unlink(secretFilePath, () => {});
+            fs.unlink(secretFilePath, () => {}); 
         });
     });
 });

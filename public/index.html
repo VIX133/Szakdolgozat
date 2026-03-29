@@ -137,6 +137,7 @@
     </section>
 
     <script>
+        
         const encodeBtn = document.getElementById('encodeBtn');
         const fileInput = document.getElementById('fileInput');
         
@@ -146,6 +147,20 @@
         const templateCards = document.querySelectorAll('.template-card');
 
         let selectedTemplateUrl = null;
+
+        const sessionSeed = Math.floor(Math.random() * 100000); 
+        const sizes = [
+            { w: 400, h: 300 },
+            { w: 800, h: 600 },
+            { w: 1920, h: 1080 },
+            { w: 2560, h: 1440 }
+        ];
+
+        templateCards.forEach((card, index) => {
+            const imgUrl = `https://picsum.photos/seed/stego_${sessionSeed + index}/${sizes[index].w}/${sizes[index].h}`;
+            card.setAttribute('data-url', imgUrl);       
+            card.querySelector('img').src = imgUrl;     
+        });
 
         secretFileInput.addEventListener('change', () => {
             const headerSize = 64;

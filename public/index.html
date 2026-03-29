@@ -20,7 +20,6 @@
             margin-top: 20px; display: flex; flex-direction: column; gap: 15px; text-align: left;
         }
 
-        /* SABLON KÉPEK DIZÁJNJA */
         .template-header { font-weight: bold; margin-bottom: -5px; color: #b4befe; }
         .template-grid { display: flex; gap: 15px; justify-content: space-between; }
         
@@ -43,7 +42,6 @@
         
         textarea { height: 100px; font-family: 'Consolas', monospace; resize: vertical; }
 
-        /* ÉLŐ SZÁMLÁLÓ */
         .counter { text-align: right; font-size: 12px; color: #a6adc8; margin-top: -10px; font-weight: bold; }
         .counter span { color: #89b4fa; }
 
@@ -68,7 +66,6 @@
 
         #status { margin-top: 15px; font-weight: bold; text-align: center; }
 
-        /* Hullámok */
         .wave { position: fixed; bottom: 0; left: 0; width: 100%; height: 20vh; background: url(https://i.imgur.com/DLD3N2t.png); background-size: 100vw 20vh; pointer-events: none; }
         .wave1 { animation: animate 20s linear infinite; z-index: 15; opacity: 0.9; bottom: 0; }
         .wave2 { animation: animate2 15s linear infinite; z-index: 10; opacity: 0.7; animation-delay: -5s; bottom: 10px; }
@@ -109,8 +106,15 @@
                 <div class="divider">--- VAGY TÖLTS FEL SAJÁTOT ---</div>
                 <input type="file" id="fileInput" accept="image/*">
 
-                <div class="template-header" style="margin-top: 10px;">2. Lépés: Válassz egy fájlt (pl. PDF, DOCX), amit el akarsz rejteni.</div>
-                <input type="file" id="secretFileInput"> <div class="counter">Rejtendő fájl mérete: <span id="byteCounter">0 KB</span></div>
+                <div class="template-header" style="margin-top: 10px;">2. Lépés: Rejts el egy fájlt VAGY írj egy titkos üzenetet!</div>
+                
+                <p style="font-size: 14px; color: #a6adc8; margin-bottom: 5px;">A) Fájl feltöltése (pl. PDF, DOCX):</p>
+                <input type="file" id="secretFileInput"> 
+                
+                <p style="font-size: 14px; color: #a6adc8; margin-bottom: 5px; margin-top: 15px;">B) VAGY gépelj be egy szöveget:</p>
+                <textarea id="messageInput" placeholder="Ide jöhet a titkos szöveg..."></textarea>
+                
+                <div class="counter">Rejtendő adat mérete: <span id="byteCounter">0 KB</span></div>
 
                 <button class="btn" id="encodeBtn">Fájl képbe rejtése és letöltése</button>
                 <div id="status"></div>
@@ -136,7 +140,6 @@
         const encodeBtn = document.getElementById('encodeBtn');
         const fileInput = document.getElementById('fileInput');
         
-        // messageInput helyett secretFileInput lett
         const secretFileInput = document.getElementById('secretFileInput'); 
         const statusDiv = document.getElementById('status');
         const byteCounter = document.getElementById('byteCounter');
@@ -144,9 +147,8 @@
 
         let selectedTemplateUrl = null;
 
-        // --- ÚJ ÉLŐ MÉRETSZÁMLÁLÓ FÁJLOKHOZ ---
         secretFileInput.addEventListener('change', () => {
-            const headerSize = 64; // Az új C fejlécünk 64 bájtos!
+            const headerSize = 64;
             const file = secretFileInput.files[0];
             const fileBytes = file ? file.size : 0; 
             const totalBytes = headerSize + fileBytes;
@@ -154,7 +156,6 @@
             const kbSize = (totalBytes / 1024).toFixed(2);
             const mbSize = (totalBytes / (1024 * 1024)).toFixed(2);
             
-            // Szebb MB kijelzés, ha nagyon nagy fájlt töltenek fel
             if (totalBytes < 1024) {
                 byteCounter.innerText = `${totalBytes} Bájt`;
             } else if (totalBytes < 1024 * 1024) {
@@ -163,12 +164,10 @@
                 byteCounter.innerText = `${mbSize} MB`;
             }
             
-            // A piros jelzés határát felemeltük ~1.5 MB-ra az LSB-2 miatt!
             if (totalBytes > 1500000) { byteCounter.style.color = "#f38ba8"; } 
             else { byteCounter.style.color = "#89b4fa"; }
         });
 
-        // --- SABLON KIVÁLASZTÁSA (Ez marad ugyanaz) ---
         templateCards.forEach(card => {
             card.addEventListener('click', () => {
                 templateCards.forEach(c => c.classList.remove('selected'));
@@ -183,7 +182,6 @@
             selectedTemplateUrl = null;
         });
 
-        // --- A KÉPKONVERTÁLÓ FÜGGVÉNY ---
         function convertToPNG(file) {
             return new Promise((resolve) => {
                 if (file.type === 'image/png') return resolve(file);
@@ -210,16 +208,15 @@
             });
         }
 
-        // --- A GOMB MEGNYOMÁSA (FRISSÍTVE) ---
         encodeBtn.addEventListener('click', async () => {
-            const secretFile = secretFileInput.files[0]; // Szöveg helyett a titkos fájlt kérjük le
+            const messageText = document.getElementById('messageInput').value;
+            const secretFile = secretFileInput.files[0]; 
             let finalImageFile = null;
             let downloadFileName = "titkos_kep.png"; 
 
-            // Ellenőrizzük, hogy választott-e fájlt a rejtéshez
-            if (!secretFile) {
+            if (!secretFile && !messageText) {
                 statusDiv.style.color = "#f38ba8";
-                statusDiv.innerText = "Kérlek válassz egy fájlt, amit el akarsz rejteni!";
+                statusDiv.innerText = "Kérlek válassz egy fájlt, vagy írj be egy üzenetet!";
                 return;
             }
 
@@ -249,10 +246,14 @@
 
             finalImageFile = await convertToPNG(finalImageFile);
 
-            // --- FormData összerakása (ITT A VÁLTOZÁS) ---
             const formData = new FormData();
             formData.append('image', finalImageFile);
-            formData.append('secretFile', secretFile); // 'message' helyett 'secretFile' néven küldjük
+            
+            if (secretFile) {
+                formData.append('secretFile', secretFile);
+            } else {
+                formData.append('message', messageText);
+            }
 
             statusDiv.style.color = "#89b4fa";
             statusDiv.innerText = "Feltöltés és titkosítás a szerveren...";

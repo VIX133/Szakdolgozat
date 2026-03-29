@@ -4,62 +4,50 @@
 #include <stdlib.h>
 #include <zlib.h>
 
-// ÚJ FEJLÉC: Fájlnév tárolása a 4 karakteres kiterjesztés helyett
+
 struct Header {
-    uint32_t size;       // rejtett fájl hossza
-    char filename[60];   // pl. "titkos_szerzodes.pdf"
+    uint32_t size;  
+    char filename[60]; 
 };
 
-// ÚJ 2-BITES BEÁGYAZÓ FÜGGVÉNY
 void hide_twobits_in_byte(uint8_t *byte, uint8_t bits) {
-    // 0xFC (252) maszk kinullázza az utolsó 2 bitet, utána rátesszük a mi 2 bitünket
     *byte = (*byte & 0xFC) | (bits & 0x03);
 }
 
-// ÚJ LSB-2 MOTOR: Alpha csatorna kihagyásával
-void hide_data_in_image(uint8_t *decompressed,
-                        uint32_t width,
-                        uint32_t height,
-                        uint32_t bpp,
-                        const void *data,
-                        size_t len_bytes,
-                        size_t *current_channel_idx) {
-    uint32_t row_size = width * bpp + 1; // 1 bájt filter + pixelek
+
+void hide_data_in_image(uint8_t *decompressed,uint32_t width,uint32_t height,uint32_t bpp,const void *data,size_t len_bytes,size_t *current_channel_idx) {
+    uint32_t row_size = width * bpp + 1; 
     const uint8_t *bytes = (const uint8_t*)data;
     size_t idx = *current_channel_idx;
 
     for (size_t i = 0; i < len_bytes; i++) {
-        // Egy 8 bites bájt elrejtéséhez 4-szer fut le (2 bitenként)
+       
         for (int shift = 6; shift >= 0; shift -= 2) {
 
             uint32_t x_in_row = idx % (width * bpp);
 
-            // ALPHA UGRÁS: Ha RGBA kép (bpp == 4) és ez az Alpha csatorna
             if (bpp == 4 && (x_in_row % 4) == 3) {
-                idx++; // Átugorjuk az Alpha bájtot!
-                x_in_row = idx % (width * bpp); // Újraszámoljuk a sorbeli pozíciót
+                idx++; 
+                x_in_row = idx % (width * bpp); 
             }
 
             uint32_t y = idx / (width * bpp);
 
             if (y >= height) {
-                return; // Nincs több hely a képben
+                return;
             }
 
-            // Megkeressük a pontos memóriacímet a sorban (filter bájt átugrásával)
             uint8_t *scanline = decompressed + y * row_size;
             uint8_t *line = scanline + 1;
 
-            // 2 bit kivágása a rejtendő fájl bájtjából
             uint8_t two_bits = (bytes[i] >> shift) & 0x03;
 
-            // Beágyazás
             hide_twobits_in_byte(&line[x_in_row], two_bits);
 
-            idx++; // Lépünk a következő színcsatornára
+            idx++;
         }
     }
-    *current_channel_idx = idx; // Elmentjük, hol hagytuk abba
+    *current_channel_idx = idx;
 }
 
 uint8_t paeth_predictor(uint8_t a, uint8_t b, uint8_t c)
@@ -78,29 +66,29 @@ uint8_t paeth_predictor(uint8_t a, uint8_t b, uint8_t c)
 void png_defilter(uint8_t *scanline, uint8_t *prev_scanline, uint32_t width, uint8_t bpp)
 {
     uint8_t filter = scanline[0];
-    uint8_t *line = scanline + 1; // első bájt a filter
+    uint8_t *line = scanline + 1;
 
     if (filter == 0)
-        return; // None - nincs teendő
+        return;
 
     for (uint32_t x = 0; x < width * bpp; x++)
     {
         uint8_t a = 0;
         if (x >= bpp)
         {
-            a = line[x - bpp]; // bal szomszéd
+            a = line[x - bpp];
         }
 
         uint8_t b = 0;
         if (prev_scanline != NULL)
         {
-            b = prev_scanline[x + 1]; // felül
+            b = prev_scanline[x + 1];
         }
 
         uint8_t c = 0;
         if (x >= bpp && prev_scanline != NULL)
         {
-            c = prev_scanline[x - bpp + 1]; // bal-felül
+            c = prev_scanline[x - bpp + 1];
         }
 
         switch (filter)
@@ -121,7 +109,7 @@ void png_defilter(uint8_t *scanline, uint8_t *prev_scanline, uint32_t width, uin
     }
 }
 
-// Segédfüggvény chunkok írásához
+
 void write_chunk(FILE *f, const char *type, uint8_t *data, uint32_t len)
 {
     // 1. Hossz kiírása (4 bájt, Big-Endian)
@@ -171,7 +159,6 @@ int main(int argc, char *argv[])
     const char *text_filename   = argv[3];
     const char *original_name = (argc >= 5) ? argv[4] : text_filename;
 
-    // --- SZÖVEG / BINÁRIS FÁJL BEOLVASÁSA ---
     FILE *msg_file = fopen(text_filename, "rb");
     if (!msg_file) {
         printf("Hiba: Nem talalom a szoveges/binaris fajlt: %s\n", text_filename);
@@ -192,7 +179,6 @@ int main(int argc, char *argv[])
     fread(secret_message, 1, msg_size, msg_file);
     fclose(msg_file);
 
-    // PNG beolvasás
     FILE *f = fopen(input_filename, "rb");
     if (!f)
     {
@@ -201,7 +187,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // PNG signature ellenőrzés (8 bájt)
     uint8_t signature[8];
     fread(signature, 1, 8, f);
     if (signature[0] != 0x89 || signature[1] != 'P' || signature[2] != 'N' || signature[3] != 'G' ||
@@ -240,7 +225,6 @@ int main(int argc, char *argv[])
     }
     printf("IHDR chunk OK\n");
 
-    // IHDR adatok: width, height, stb.
     uint8_t width_bytes[4], height_bytes[4],
             bit_depth_bytes[1], color_type_bytes[1],
             compression_bytes[1], filter_method_bytes[1],
@@ -359,9 +343,8 @@ int main(int argc, char *argv[])
 
     // --- ÚJ FEJLÉC ÖSSZEÁLLÍTÁSA ---
     struct Header header = {0};
-    header.size = (uint32_t)msg_size; // A beolvasott fájl (pl. PDF) tényleges mérete
+    header.size = (uint32_t)msg_size; 
 
-    // Fájlnév kinyerése AZ EREDETI NÉVBŐL (4. paraméter / GUI név)
     const char *filename_only = original_name;
     const char *slash = strrchr(filename_only, '/');
     if (slash) filename_only = slash + 1;
@@ -371,11 +354,9 @@ int main(int argc, char *argv[])
 strncpy(header.filename, filename_only, 59);
 header.filename[59] = '\0';
 
-    // --- ÚJ LSB-2 KAPACITÁS ELLENŐRZÉS ---
     size_t total_bytes_to_hide = sizeof(struct Header) + header.size;
     size_t channels_needed = total_bytes_to_hide * 4;
 
-    // Rendelkezésre álló csatornák (Az Alpha bájtokat nem számoljuk bele!)
     size_t available_channels = width * height * 3;
 
     if (channels_needed > available_channels) {
@@ -387,13 +368,10 @@ header.filename[59] = '\0';
         return 1;
     }
 
-    // --- BEÁGYAZÁS ---
     size_t current_pos = 0;
 
-    // 1. Először a headert
     hide_data_in_image(decompressed, width, height, bpp, &header, sizeof(struct Header), &current_pos);
 
-    // 2. Utána magát a fájlt
     hide_data_in_image(decompressed, width, height, bpp, secret_message, header.size, &current_pos);
 
     printf("Minden adat elrejtve! Elhasznalt csatornak: %zu\n", current_pos);
@@ -435,11 +413,9 @@ header.filename[59] = '\0';
         return 1;
     }
 
-    // A) PNG Szignatúra (Magic Bytes)
     uint8_t png_signature[8] = {137, 80, 78, 71, 13, 10, 26, 10};
     fwrite(png_signature, 1, 8, out);
 
-    // B) IHDR Chunk (Kép paraméterei)
     uint8_t ihdr_data[13];
     ihdr_data[0] = (width >> 24) & 0xFF;
     ihdr_data[1] = (width >> 16) & 0xFF;
@@ -451,18 +427,16 @@ header.filename[59] = '\0';
     ihdr_data[6] = (height >> 8)  & 0xFF;
     ihdr_data[7] =  height        & 0xFF;
 
-    ihdr_data[8]  = 8;                 // Bit depth (8 bit/csatorna)
-    ihdr_data[9]  = color_type_bytes[0]; // Color type (RGB/RGBA ugyanaz, mint bemenet)
-    ihdr_data[10] = 0;                 // Compression (Deflate)
-    ihdr_data[11] = 0;                 // Filter method
-    ihdr_data[12] = 0;                 // Interlace (Nincs)
+    ihdr_data[8]  = 8;               
+    ihdr_data[9]  = color_type_bytes[0];
+    ihdr_data[10] = 0;             
+    ihdr_data[11] = 0;                
+    ihdr_data[12] = 0;              
 
     write_chunk(out, "IHDR", ihdr_data, 13);
 
-    // C) IDAT Chunk (A képadatok)
     write_chunk(out, "IDAT", new_compressed, new_compressed_size);
 
-    // D) IEND Chunk (Lezárás - üres adat)
     write_chunk(out, "IEND", NULL, 0);
 
     fclose(out);

@@ -4,36 +4,41 @@
 #include <stdlib.h>
 #include <zlib.h>
 
-
-struct Header {
-    uint32_t size;  
-    char filename[60]; 
+struct Header
+{
+    uint32_t size;
+    char filename[60];
 };
 
-void hide_twobits_in_byte(uint8_t *byte, uint8_t bits) {
+void hide_twobits_in_byte(uint8_t *byte, uint8_t bits)
+{
     *byte = (*byte & 0xFC) | (bits & 0x03);
 }
 
-
-void hide_data_in_image(uint8_t *decompressed,uint32_t width,uint32_t height,uint32_t bpp,const void *data,size_t len_bytes,size_t *current_channel_idx) {
-    uint32_t row_size = width * bpp + 1; 
-    const uint8_t *bytes = (const uint8_t*)data;
+void hide_data_in_image(uint8_t *decompressed, uint32_t width, uint32_t height, uint32_t bpp, const void *data, size_t len_bytes, size_t *current_channel_idx)
+{
+    uint32_t row_size = width * bpp + 1;
+    const uint8_t *bytes = (const uint8_t *)data;
     size_t idx = *current_channel_idx;
 
-    for (size_t i = 0; i < len_bytes; i++) {
-       
-        for (int shift = 6; shift >= 0; shift -= 2) {
+    for (size_t i = 0; i < len_bytes; i++)
+    {
+
+        for (int shift = 6; shift >= 0; shift -= 2)
+        {
 
             uint32_t x_in_row = idx % (width * bpp);
 
-            if (bpp == 4 && (x_in_row % 4) == 3) {
-                idx++; 
-                x_in_row = idx % (width * bpp); 
+            if (bpp == 4 && (x_in_row % 4) == 3)
+            {
+                idx++;
+                x_in_row = idx % (width * bpp);
             }
 
             uint32_t y = idx / (width * bpp);
 
-            if (y >= height) {
+            if (y >= height)
+            {
                 return;
             }
 
@@ -109,7 +114,6 @@ void png_defilter(uint8_t *scanline, uint8_t *prev_scanline, uint32_t width, uin
     }
 }
 
-
 void write_chunk(FILE *f, const char *type, uint8_t *data, uint32_t len)
 {
     // 1. Hossz kiírása (4 bájt, Big-Endian)
@@ -148,19 +152,21 @@ void write_chunk(FILE *f, const char *type, uint8_t *data, uint32_t len)
 
 int main(int argc, char *argv[])
 {
-    if (argc < 4) {
+    if (argc < 4)
+    {
         printf("Hiba: Nem megfelelő parameterek!\n");
         printf("Hasznalat: %s <bemeneti_png> <kimeneti_png> <rejtett_fajl>\n", argv[0]);
         return 1;
     }
 
-    const char *input_filename  = argv[1];
+    const char *input_filename = argv[1];
     const char *output_filename = argv[2];
-    const char *text_filename   = argv[3];
+    const char *text_filename = argv[3];
     const char *original_name = (argc >= 5) ? argv[4] : text_filename;
 
     FILE *msg_file = fopen(text_filename, "rb");
-    if (!msg_file) {
+    if (!msg_file)
+    {
         printf("Hiba: Nem talalom a szoveges/binaris fajlt: %s\n", text_filename);
         return 1;
     }
@@ -170,7 +176,8 @@ int main(int argc, char *argv[])
     fseek(msg_file, 0, SEEK_SET);
 
     char *secret_message = malloc(msg_size);
-    if (!secret_message) {
+    if (!secret_message)
+    {
         printf("Memoriahiba a rejtett fajl betoltesekor!\n");
         fclose(msg_file);
         return 1;
@@ -203,7 +210,7 @@ int main(int argc, char *argv[])
     uint8_t len_bytes[4];
     fread(len_bytes, 1, 4, f);
     uint32_t ihdr_len = (len_bytes[0] << 24) | (len_bytes[1] << 16) |
-                        (len_bytes[2] << 8)  |  len_bytes[3];
+                        (len_bytes[2] << 8) | len_bytes[3];
 
     if (ihdr_len != 13)
     {
@@ -226,9 +233,9 @@ int main(int argc, char *argv[])
     printf("IHDR chunk OK\n");
 
     uint8_t width_bytes[4], height_bytes[4],
-            bit_depth_bytes[1], color_type_bytes[1],
-            compression_bytes[1], filter_method_bytes[1],
-            interlace_bytes[1];
+        bit_depth_bytes[1], color_type_bytes[1],
+        compression_bytes[1], filter_method_bytes[1],
+        interlace_bytes[1];
 
     fread(width_bytes, 1, 4, f);
     fread(height_bytes, 1, 4, f);
@@ -238,10 +245,10 @@ int main(int argc, char *argv[])
     fread(filter_method_bytes, 1, 1, f);
     fread(interlace_bytes, 1, 1, f);
 
-    uint32_t width  = (width_bytes[0]  << 24) | (width_bytes[1]  << 16) |
-                      (width_bytes[2]  <<  8) |  width_bytes[3];
+    uint32_t width = (width_bytes[0] << 24) | (width_bytes[1] << 16) |
+                     (width_bytes[2] << 8) | width_bytes[3];
     uint32_t height = (height_bytes[0] << 24) | (height_bytes[1] << 16) |
-                      (height_bytes[2] <<  8) |  height_bytes[3];
+                      (height_bytes[2] << 8) | height_bytes[3];
 
     printf("Kep merete: %u x %u pixel\n", width, height);
 
@@ -261,7 +268,7 @@ int main(int argc, char *argv[])
             break;
         uint32_t length =
             (len_bytes2[0] << 24) | (len_bytes2[1] << 16) |
-            (len_bytes2[2] <<  8) |  len_bytes2[3];
+            (len_bytes2[2] << 8) | len_bytes2[3];
 
         // 2) Típus
         if (fread(type, 1, 4, f) != 4)
@@ -289,11 +296,16 @@ int main(int argc, char *argv[])
     printf("Osszes IDAT: %zu bajt\n", compressed_size);
 
     uint32_t bpp;
-    if (color_type_bytes[0] == 6) {
+    if (color_type_bytes[0] == 6)
+    {
         bpp = 4; // RGBA
-    } else if (color_type_bytes[0] == 2) {
+    }
+    else if (color_type_bytes[0] == 2)
+    {
         bpp = 3; // RGB
-    } else {
+    }
+    else
+    {
         printf("Hiba: Csak RGB vagy RGBA PNG tamogatott!\n");
         free(compressed);
         free(secret_message);
@@ -304,7 +316,8 @@ int main(int argc, char *argv[])
     // Zlibbel kitomoritem a tombot
     uLongf decompressed_size = width * height * bpp + height; // RGBA + 1 filter/sor
     uint8_t *decompressed = malloc(decompressed_size);
-    if (!decompressed) {
+    if (!decompressed)
+    {
         printf("Memoriahiba a kitomoritesnel!\n");
         free(compressed);
         free(secret_message);
@@ -343,23 +356,26 @@ int main(int argc, char *argv[])
 
     // --- ÚJ FEJLÉC ÖSSZEÁLLÍTÁSA ---
     struct Header header = {0};
-    header.size = (uint32_t)msg_size; 
+    header.size = (uint32_t)msg_size;
 
     const char *filename_only = original_name;
     const char *slash = strrchr(filename_only, '/');
-    if (slash) filename_only = slash + 1;
+    if (slash)
+        filename_only = slash + 1;
     const char *backslash = strrchr(filename_only, '\\');
-    if (backslash) filename_only = backslash + 1;
+    if (backslash)
+        filename_only = backslash + 1;
 
-strncpy(header.filename, filename_only, 59);
-header.filename[59] = '\0';
+    strncpy(header.filename, filename_only, 59);
+    header.filename[59] = '\0';
 
     size_t total_bytes_to_hide = sizeof(struct Header) + header.size;
     size_t channels_needed = total_bytes_to_hide * 4;
 
     size_t available_channels = width * height * 3;
 
-    if (channels_needed > available_channels) {
+    if (channels_needed > available_channels)
+    {
         printf("Nem fer bele a fajl a kepbe! (Tul nagy)\n");
         free(compressed);
         free(decompressed);
@@ -419,19 +435,19 @@ header.filename[59] = '\0';
     uint8_t ihdr_data[13];
     ihdr_data[0] = (width >> 24) & 0xFF;
     ihdr_data[1] = (width >> 16) & 0xFF;
-    ihdr_data[2] = (width >> 8)  & 0xFF;
-    ihdr_data[3] =  width        & 0xFF;
+    ihdr_data[2] = (width >> 8) & 0xFF;
+    ihdr_data[3] = width & 0xFF;
 
     ihdr_data[4] = (height >> 24) & 0xFF;
     ihdr_data[5] = (height >> 16) & 0xFF;
-    ihdr_data[6] = (height >> 8)  & 0xFF;
-    ihdr_data[7] =  height        & 0xFF;
+    ihdr_data[6] = (height >> 8) & 0xFF;
+    ihdr_data[7] = height & 0xFF;
 
-    ihdr_data[8]  = 8;               
-    ihdr_data[9]  = color_type_bytes[0];
-    ihdr_data[10] = 0;             
-    ihdr_data[11] = 0;                
-    ihdr_data[12] = 0;              
+    ihdr_data[8] = 8;
+    ihdr_data[9] = color_type_bytes[0];
+    ihdr_data[10] = 0;
+    ihdr_data[11] = 0;
+    ihdr_data[12] = 0;
 
     write_chunk(out, "IHDR", ihdr_data, 13);
 

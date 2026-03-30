@@ -83,24 +83,36 @@
             
             <div class="input-group">
                 
-                <div class="template-header">1. Lépés: Válassz egy képet a rejtéshez</div>
                 <div class="template-grid">
-                    <div class="template-card" data-url="https://picsum.photos/400/300?random=1">
-                        <img src="https://picsum.photos/400/300?random=1" crossorigin="anonymous">
-                        <div class="info">Kicsi (400x300)</div>
-                        <div class="capacity">~90 KB hely</div> </div>
-                    <div class="template-card" data-url="https://picsum.photos/800/600?random=2">
-                        <img src="https://picsum.photos/800/600?random=2" crossorigin="anonymous">
-                        <div class="info">Közepes (800x600)</div>
-                        <div class="capacity">~360 KB hely</div> </div>
-                    <div class="template-card" data-url="https://picsum.photos/1920/1080?random=3">
-                        <img src="https://picsum.photos/1920/1080?random=3" crossorigin="anonymous">
-                        <div class="info">Nagy (1920x1080)</div>
-                        <div class="capacity">~1.5 MB hely</div> </div>
-                    <div class="template-card" data-url="https://picsum.photos/2560/1440?random=3">
-                        <img src="https://picsum.photos/2560/1440?random=3" crossorigin="anonymous">
-                        <div class="info">Nagyon nagy (2560x1440)</div>
-                        <div class="capacity">~2.6 MB hely</div> </div>
+                    <div class="template-card" data-url="/kicsi.jpg">
+                        <img src="/kicsi.jpg">
+                        <div class="info">Lombkorona (640x428)</div>
+                        <div class="capacity">~200 KB hely</div> 
+                    </div>
+                    
+                    <div class="template-card" data-url="/kozepes.jpg">
+                        <img src="/kozepes.jpg">
+                        <div class="info">Kavicsok (1280x851)</div>
+                        <div class="capacity">~798 KB hely</div> 
+                    </div>
+                    
+                    <div class="template-card" data-url="/nagy.jpg">
+                        <img src="/nagy.jpg">
+                        <div class="info">Erdő (1920x1282)</div>
+                        <div class="capacity">~1.8 MB hely</div> 
+                    </div>
+                    
+                    <div class="template-card" data-url="/extranagy.jpg">
+                        <img src="/extranagy.jpg">
+                        <div class="info">Város (6016x4016)</div>
+                        <div class="capacity">~17.7 MB hely</div> 
+                    </div>
+
+                    <div class="template-card" data-url="/giganagy.jpg">
+                        <img src="/giganagy.jpg">
+                        <div class="info">Táj (21600x14400)</div>
+                        <div class="capacity">~227.8 MB hely</div> 
+                    </div>
                 </div>
 
                 <div class="divider">--- VAGY TÖLTS FEL SAJÁTOT ---</div>
@@ -148,25 +160,31 @@
 
         let selectedTemplateUrl = null;
 
-        const sessionSeed = Math.floor(Math.random() * 100000); 
-        const sizes = [
-            { w: 400, h: 300 },
-            { w: 800, h: 600 },
-            { w: 1920, h: 1080 },
-            { w: 2560, h: 1440 }
-        ];
+        function updateCounter() {
+            const headerSize = 64; // A C program fejléce mindig 64 bájt!
+            let dataBytes = 0;
 
-        templateCards.forEach((card, index) => {
-            const imgUrl = `https://picsum.photos/seed/stego_${sessionSeed + index}/${sizes[index].w}/${sizes[index].h}`;
-            card.setAttribute('data-url', imgUrl);       
-            card.querySelector('img').src = imgUrl;     
-        });
-
-        secretFileInput.addEventListener('change', () => {
-            const headerSize = 64;
             const file = secretFileInput.files[0];
-            const fileBytes = file ? file.size : 0; 
-            const totalBytes = headerSize + fileBytes;
+            const messageText = document.getElementById('messageInput').value;
+
+            // Ha van fájl, annak a méretét vesszük
+            if (file) {
+                dataBytes = file.size;
+            } 
+            // Ha nincs fájl, de van szöveg, kiszámoljuk a szöveg méretét bájtokban
+            else if (messageText) {
+                dataBytes = new Blob([messageText]).size; 
+            }
+
+            // Ha teljesen üres minden
+            if (dataBytes === 0) {
+                byteCounter.innerText = "0 KB";
+                byteCounter.style.color = "#a6adc8";
+                return;
+            }
+
+            // Hozzáadjuk a 64 bájtos fejlécet!
+            const totalBytes = headerSize + dataBytes;
             
             const kbSize = (totalBytes / 1024).toFixed(2);
             const mbSize = (totalBytes / (1024 * 1024)).toFixed(2);
@@ -179,9 +197,13 @@
                 byteCounter.innerText = `${mbSize} MB`;
             }
             
-            if (totalBytes > 1500000) { byteCounter.style.color = "#f38ba8"; } 
-            else { byteCounter.style.color = "#89b4fa"; }
-        });
+            // Ha nagyon nagy adatot adnak meg (pl. 1.5 MB felett), pirosra vált
+            if (totalBytes > 1500000) { 
+                byteCounter.style.color = "#f38ba8"; 
+            } else { 
+                byteCounter.style.color = "#89b4fa"; 
+            }
+        }
 
         templateCards.forEach(card => {
             card.addEventListener('click', () => {
@@ -222,6 +244,9 @@
                 reader.readAsDataURL(file);
             });
         }
+
+        secretFileInput.addEventListener('change', updateCounter);
+        document.getElementById('messageInput').addEventListener('input', updateCounter);
 
         encodeBtn.addEventListener('click', async () => {
             const messageText = document.getElementById('messageInput').value;
